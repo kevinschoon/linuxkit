@@ -44,6 +44,7 @@ type QemuConfig struct {
 	QemuImgPath    string
 	PublishedPorts []string
 	NetdevConfig   string
+	ExtraFlags     []string
 	UUID           uuid.UUID
 }
 
@@ -162,6 +163,9 @@ func runQemu(args []string) {
 
 	// Backend configuration
 	qemuContainerized := flags.Bool("containerized", false, "Run qemu in a container")
+
+	// Extra flags to pass to Qemu
+	extraFlagsRaw := flags.String("extra", "", "Extra flags to pass to Qemu")
 
 	// Generate UUID, so that /sys/class/dmi/id/product_uuid is populated
 	vmUUID := uuid.NewV4()
@@ -299,6 +303,13 @@ func runQemu(args []string) {
 		log.Fatalf("Invalid networking mode: %s", netMode[0])
 	}
 
+	var extraFlags []string
+	if *extraFlagsRaw != "" {
+		for _, extra := range strings.Split(*extraFlagsRaw, " ") {
+			extraFlags = append(extraFlags, extra)
+		}
+	}
+
 	config := QemuConfig{
 		Path:           path,
 		ISOBoot:        *isoBoot,
@@ -314,6 +325,7 @@ func runQemu(args []string) {
 		Memory:         *mem,
 		KVM:            *enableKVM,
 		Containerized:  *qemuContainerized,
+		ExtraFlags:     extraFlags,
 		PublishedPorts: publishFlags,
 		NetdevConfig:   netdevConfig,
 		UUID:           vmUUID,
@@ -568,6 +580,10 @@ func buildQemuCmdline(config QemuConfig) (QemuConfig, []string) {
 
 	if config.GUI != true {
 		qemuArgs = append(qemuArgs, "-nographic")
+	}
+
+	for _, arg := range config.ExtraFlags {
+		qemuArgs = append(qemuArgs, arg)
 	}
 
 	return config, qemuArgs
